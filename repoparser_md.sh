@@ -2,11 +2,10 @@
 
 #repoparser
 
-PATH=/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin
-
+logLocation=/var/lib/jenkins/jenkins-active-repo-parser/logs/
 timestamp="$(date +"%FT%H%M%S")"
 logretention=20
-loglist=$(ls -l /var/lib/jenkins/git/cloud-market-data/jenkins_tools/activechoice_repo_parser/logs/ | grep .log | awk '{print $9}' | wc -l)
+loglist=$(ls -l $logLocation | grep .log | awk '{print $9}' | wc -l)
 
 #add token here
 token=
@@ -20,8 +19,8 @@ curl -s -H "Authorization: bearer $token" -d '
   ' https://api.github.factset.com/graphql | jq -r '.data.rateLimit.remaining'
 )
 
-if [ ! -d "/var/lib/jenkins/git/cloud-market-data/jenkins_tools/activechoice_repo_parser/logs" ]; then
-  mkdir /var/lib/jenkins/git/cloud-market-data/jenkins_tools/activechoice_repo_parser/logs
+if [ ! -d $logLocation ]; then
+  mkdir $logLocation
 fi
 
 echo "-----------------------"
@@ -32,8 +31,8 @@ if [ $loglist -gt $logretention ]
 then
 
  delcount=`expr $loglist - $logretention`
- echo "log rentention hit, deleting oldest log file" | tee -a /var/lib/jenkins/git/cloud-market-data/jenkins_tools/activechoice_repo_parser/logs/completed_$timestamp.log
- find /var/lib/jenkins/git/cloud-market-data/jenkins_tools/activechoice_repo_parser/logs/ -type f -printf '%T+ %p\n' | sort | head -n $delcount | awk '{print $2}' | sed 's/[^\]*logs[^\]//' | xargs -I {} rm /var/lib/jenkins/git/cloud-market-data/jenkins_tools/activechoice_repo_parser/logs/{}
+ echo "log rentention hit, deleting oldest log file" | tee -a $logLocation/completed_$timestamp.log
+ find $logLocation -type f -printf '%T+ %p\n' | sort | head -n $delcount | awk '{print $2}' | sed 's/[^\]*logs[^\]//' | xargs -I {} rm $logLocation{}
 
 else
 
@@ -52,7 +51,7 @@ then
     echo "passed"
     echo "remaining rate limit is $ratelimit, reseting within 1 hour"
 else
-    echo "API rate limit reached or failure, exiting. Current API limit is $ratelimit" | tee -a /var/lib/jenkins/git/cloud-market-data/jenkins_tools/activechoice_repo_parser/logs/"not_completed_rate_lmit_$timestamp.log"
+    echo "API rate limit reached or failure, exiting. Current API limit is $ratelimit" | tee -a $logLocation"not_completed_rate_lmit_$timestamp.log"
     exit 1
 fi
 
@@ -62,25 +61,25 @@ echo "--------------------------------------"
 echo "parsing GraphQL repolist to output txt"
 echo "--------------------------------------"
 
-count=$(cat /var/lib/jenkins/git/cloud-market-data/jenkins_tools/activechoice_repo_parser/topics.txt | wc -l)
+count=$(cat /var/lib/jenkins/git/jenkins-active-repo-parser/topics.txt | wc -l)
 
 while [ $count -gt 0 ]
 do
  
-    topic=$(cat /var/lib/jenkins/git/cloud-market-data/jenkins_tools/activechoice_repo_parser/topics.txt | awk NR==$count)
+    topic=$(cat /var/lib/jenkins/git/jenkins-active-repo-parser/topics.txt | awk NR==$count)
     
     echo "creating market-data list for topic $topic"    
 
     curl -s -H "Authorization: bearer $token" -d '
     {
-        "query": "query { search(query: \"topic:'$topic' org:market-data-cloud sort:updated\", type: REPOSITORY, first: 100) { repositoryCount nodes { ... on Repository { sshUrl }}}}"
+        "query": "query { search(query: \"topic:'$topic' org:GIT-ORG:updated\", type: REPOSITORY, first: 100) { repositoryCount nodes { ... on Repository { sshUrl }}}}"
 
     } 
-    ' https://api.github.factset.com/graphql | jq -r '.data.search.nodes[].sshUrl' > "/var/lib/jenkins/git/cloud-market-data/jenkins_tools/activechoice_repo_parser/output_*market-data_content."$topic".txt"
+    ' https://api.github.com/graphql | jq -r '.data.search.nodes[].sshUrl' > "/var/lib/jenkins/git/jenkins-active-repo-parser/output."$topic".txt"
 
      
     
-    echo "---devops---" >> "/var/lib/jenkins/git/cloud-market-data/jenkins_tools/activechoice_repo_parser/output_*market-data_content."$topic".txt"
+    echo "---devops---" >> "/var/lib/jenkins/git/jenkins-active-repo-parser/output."$topic".txt"
 
 
     echo "creating market-data list for topic $topic, qt-admin repos"    
