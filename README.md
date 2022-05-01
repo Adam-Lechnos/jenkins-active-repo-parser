@@ -17,3 +17,13 @@ Pull latest list of GitHub repos from a list of topics for Jenkins Active Choice
 * For users with no repos labeled, the text file will contain the work 'empty' respectively.
 * The Active Choice Parameter in Jenkins will parse the text file names into a dropdown list, with *example_org as the default option.
 * A second Active Choice Parameter will then display the list of git repos inside the respective text file, per the previous selection.
+
+#### Active Choices Reactive Parameter script
+```
+def proc = "cat /var/lib/jenkins/activechoice_repo_parser/output_${git_org}_content.qt-${account_group}.txt".execute()
+proc.waitFor()
+def output = proc.in.text
+def exitcode = proc.exitValue()
+def error = proc.err.text
+return output.tokenize()
+```
